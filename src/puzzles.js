@@ -139,8 +139,7 @@ export function puzzleHtml() {
     --bad: #c84545;
     --light: #ebecd0;
     --dark: #739552;
-    --last: #f6f686;
-    --select: #f5f18c;
+    --highlight: rgba(255, 255, 51, .5);
     font-family: "Segoe UI", "Avenir Next", "Trebuchet MS", sans-serif;
   }
   * { box-sizing: border-box; }
@@ -154,35 +153,35 @@ export function puzzleHtml() {
   .stage { height: 100dvh; }
   .table { width: min(100%, calc(100dvh - 148px)); }
   .player { height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 2px; }
-  .avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: #5c9946; flex: 0 0 auto; }
-  .avatar .glyph { font-size: 22px; }
+  .avatar { width: 38px; height: 38px; border-radius: 4px; display: grid; place-items: center; background: #3c3a38; flex: 0 0 auto; overflow: hidden; }
+  .avatar img { width: 30px; height: 30px; object-fit: contain; }
   .who { min-width: 0; }
   .who strong { display: block; font-size: 17px; line-height: 1.1; }
   .who span { color: var(--muted); font-size: 13px; }
   .clock { margin-left: auto; color: var(--muted); font-weight: 700; font-size: 15px; }
-  .board { position: relative; width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); touch-action: none; user-select: none; box-shadow: 0 12px 40px rgba(0,0,0,.28); }
-  .square { position: relative; display: grid; place-items: center; container-type: size; }
+  .board { position: relative; width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); touch-action: none; user-select: none; }
+  .board.skinned { background: url("/_c/images.chesscomfiles.com/chess-themes/boards/green/150.png") 0 0 / 100% 100% no-repeat; }
+  .square { position: relative; display: grid; place-items: center; }
   .square.light { background: var(--light); color: var(--dark); }
   .square.dark { background: var(--dark); color: var(--light); }
-  .square.last { background: var(--last); }
-  .square.selected { background: var(--select); }
-  .square.hint { box-shadow: inset 0 0 0 4px #f2c14e; }
-  .square.bad { background: #e07a72; }
-  .coord { position: absolute; font-size: 11px; font-weight: 700; line-height: 1; pointer-events: none; }
-  .coord.file { right: 3px; bottom: 2px; }
-  .coord.rank { left: 3px; top: 2px; }
-  .piece { width: 100%; height: 100%; display: grid; place-items: center; }
-  .glyph { font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", sans-serif; font-size: 82cqmin; line-height: 1; }
-  .glyph.w { color: #fff; -webkit-text-stroke: 1px #222; text-shadow: 0 1px 0 #222; }
-  .glyph.b { color: #161616; -webkit-text-stroke: 1px #f3f3f3; }
-  .promo .glyph, .float .glyph { font-size: 52px; }
+  .board.skinned .square.light, .board.skinned .square.dark { background: transparent; }
+  .square.last::after, .square.selected::after, .square.bad::after { content: ""; position: absolute; inset: 0; background: var(--highlight); pointer-events: none; }
+  .square.bad::after { background: rgba(235, 97, 80, .7); }
+  .square.hint { box-shadow: inset 0 0 0 3px rgba(255, 170, 0, .9); }
+  .coord { position: absolute; font-size: 11px; font-weight: 700; line-height: 1; pointer-events: none; z-index: 1; }
+  .coord.file { right: 2px; bottom: 1px; }
+  .coord.rank { left: 2px; top: 1px; }
+  .piece { width: 100%; height: 100%; display: grid; place-items: center; z-index: 1; }
+  .piece img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
   .piece.ghost { opacity: .35; }
-  .dot, .ring { position: absolute; pointer-events: none; }
-  .dot { width: 22%; height: 22%; border-radius: 50%; background: rgba(0,0,0,.22); }
-  .ring { inset: 6%; border-radius: 50%; border: 4px solid rgba(0,0,0,.22); }
-  .float { position: fixed; width: 72px; height: 72px; margin: -36px 0 0 -36px; pointer-events: none; z-index: 5; filter: drop-shadow(0 8px 10px rgba(0,0,0,.35)); }
+  .dot, .ring { position: absolute; pointer-events: none; z-index: 1; }
+  .dot { width: 18%; height: 18%; border-radius: 50%; background: rgba(0, 0, 0, .2); }
+  .ring { inset: 0; background: radial-gradient(circle, transparent 62%, rgba(0, 0, 0, .2) 63%); }
+  .float { position: fixed; width: 78px; height: 78px; margin: -39px 0 0 -39px; pointer-events: none; z-index: 5; filter: drop-shadow(0 8px 8px rgba(0,0,0,.45)); }
+  .float img { width: 100%; height: 100%; object-fit: contain; }
   .promo { position: absolute; z-index: 4; display: flex; flex-direction: column; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 10px 28px rgba(0,0,0,.4); }
-  .promo button { width: 64px; height: 64px; border: 0; background: #fff; padding: 6px; }
+  .promo button { width: 72px; height: 72px; border: 0; background: #fff; padding: 4px; }
+  .promo img { width: 100%; height: 100%; object-fit: contain; }
   .promo button + button { border-top: 1px solid #e4e4e4; }
   .panel { background: var(--panel); display: flex; flex-direction: column; border-left: 1px solid #1b1917; min-width: 0; height: 100dvh; overflow: auto; }
   .panel-head { display: flex; align-items: center; gap: 8px; height: 64px; padding: 0 16px; border-bottom: 1px solid var(--line); }
@@ -205,6 +204,7 @@ export function puzzleHtml() {
   .actions { padding: 16px 20px 20px; display: flex; flex-direction: column; gap: 10px; }
   .next, .tools button, .level { border: 0; border-radius: 8px; background: var(--raised); color: white; }
   .next { height: 52px; font-size: 18px; font-weight: 750; background: var(--green); color: #fff; }
+  .status.good .next, .status.bad .next { background: #fff; color: #262421; }
   .next[hidden] { display: none; }
   .tools { display: flex; gap: 8px; }
   .tools button, .level { height: 44px; font-weight: 650; }
@@ -305,7 +305,7 @@ export function createPuzzleHandler(fetchImpl) {
     res.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
-      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src data:; connect-src 'self'",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'self'; img-src 'self'; connect-src 'self'",
       "x-content-type-options": "nosniff",
       "referrer-policy": "same-origin",
     });

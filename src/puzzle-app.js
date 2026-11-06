@@ -1,9 +1,7 @@
 import { legalMoves, parseFen, playUci, san, squareIndex } from "./chess.js";
 
-const GLYPHS = {
-  w: { k: "\u2654", q: "\u2655", r: "\u2656", b: "\u2657", n: "\u2658", p: "\u2659" },
-  b: { k: "\u265A", q: "\u265B", r: "\u265C", b: "\u265D", n: "\u265E", p: "\u265F" },
-};
+const PIECES = "/_c/images.chesscomfiles.com/chess-themes/pieces/neo/150";
+const BOARD = "/_c/images.chesscomfiles.com/chess-themes/boards/green/150.png";
 
 const THEMES = {
   mate: "Mate",
@@ -87,7 +85,7 @@ function wait(ms) {
 }
 
 function pieceSvg(color, type) {
-  return `<span class="glyph ${color}">${GLYPHS[color][type]}</span>`;
+  return `<img alt="" draggable="false" src="${PIECES}/${color}${type}.png">`;
 }
 
 function sideName(color) {
@@ -475,6 +473,9 @@ levelEl.addEventListener("change", () => nextBtn.click());
 
 opponentAvatar.innerHTML = pieceSvg("b", "k");
 selfAvatar.innerHTML = pieceSvg("w", "k");
+const boardArt = new Image();
+boardArt.onload = () => boardEl.classList.add("skinned");
+boardArt.src = BOARD;
 loadPuzzle().catch(() => {
   headline.textContent = "Couldn't load a puzzle.";
   detail.textContent = "Try again.";
