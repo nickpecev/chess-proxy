@@ -13,9 +13,22 @@ npm start
 
 Open http://127.0.0.1:8080 . This listen address is only reachable on the same computer, so no server password is required.
 
+## Use it from an iPad
+
+The iPad only opens the site. The proxy has to run on a server that stays up for the whole game. Vercel closes that connection after a few minutes, so a bot game dies there.
+
+Render keeps the connection open. From the computer that has this project:
+
+1. Push the project to a GitHub repository.
+2. In a browser, open [Render](https://render.com), create a Blueprint, and point it at that repository. Render reads `render.yaml`.
+3. When it asks for `PROXY_ACCESS_KEY`, choose a password of at least 12 characters. That password only unlocks your proxy.
+4. Wait until the service is live, then on the iPad open `https://<your-service>.onrender.com/play/computer`.
+
+The first open after a quiet period can take about a minute while the free server wakes up. Sign-in to a Chess.com account still stops at Cloudflare’s check. Guest games against the computer bots do not need an account.
+
 ## Run it where the blocked network can reach it
 
-Use a small VPS and HTTPS. Browsers need HTTPS for a stable login cookie and for live games.
+Use a small VPS and HTTPS when you want a server that does not sleep. Browsers need HTTPS for a stable cookie and for live games.
 
 ```powershell
 $env:NODE_ENV = "production"
@@ -42,7 +55,7 @@ docker build -t chess-proxy .
 docker run --rm -p 8080:8080 -e PROXY_ACCESS_KEY=... -e SESSION_SECRET=... -e PUBLIC_ORIGIN=https://chess.example.com -e TRUST_PROXY=1 chess-proxy
 ```
 
-Then open the site, enter the server password, and sign in to Chess.com as usual.
+Then open the site, enter the server password, and go to `/play/computer`. Guest games against the computer bots work. Signing in to a Chess.com account stops at Cloudflare’s check, because that check only accepts the real Chess.com address.
 
 ## What it deliberately does not do
 

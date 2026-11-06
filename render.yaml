@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: chess-proxy
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /_proxy/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: PROXY_ACCESS_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true

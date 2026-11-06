@@ -3,9 +3,13 @@ import { clientAllowlist } from "./allowlist.js";
 export function clientBoot() {
   const config = JSON.stringify(clientAllowlist());
   return `(()=>{if(window.__chessProxy)return;window.__chessProxy=1;const C=${config};
+const OrigURL=globalThis.URL;
+function fixHost(value){const text=String(value);const name=location.hostname;const parts=name.split(".");if(parts.length<2)return text;const bad="www."+parts.slice(1).join(".");if(bad.toLowerCase()===name)return text;const escaped=bad.replace(/[.*+?^\${}()|[\\]\\\\]/g,"\\\\$&");return text.replace(new RegExp("(^|[^A-Za-z0-9.-])"+escaped+"(?![A-Za-z0-9.-])","gi"),function(_match,prefix){return prefix+name;});}
+function makeURL(url,base){const next=typeof url==="string"||url instanceof OrigURL?fixHost(url):url;return base===undefined?new OrigURL(next):new OrigURL(next,base);}
+function PURL(url,base){return makeURL(url,base);}PURL.prototype=OrigURL.prototype;if(OrigURL.createObjectURL)PURL.createObjectURL=OrigURL.createObjectURL.bind(OrigURL);if(OrigURL.revokeObjectURL)PURL.revokeObjectURL=OrigURL.revokeObjectURL.bind(OrigURL);window.URL=PURL;
 const allowed=(host)=>{host=String(host||"").toLowerCase().replace(/\\.$/,"");if(C.exact.indexOf(host)>=0)return true;return C.suffixes.some((s)=>host===s||host.endsWith("."+s));};
 const fallback=(host)=>C.defaults.indexOf(String(host||"").toLowerCase())>=0;
-const mapUrl=(input)=>{try{const u=new URL(String(input),location.href);if(u.host===location.host)return u.href;if(!allowed(u.hostname))return null;const prefix=fallback(u.hostname)?"":C.prefix+"/"+u.hostname.toLowerCase();let proto=u.protocol;if(proto==="wss:"||proto==="ws:")proto=location.protocol==="https:"?"wss:":"ws:";else if(proto==="https:"||proto==="http:")proto=location.protocol;else return null;return proto+"//"+location.host+prefix+u.pathname+u.search+u.hash;}catch(e){return null;}};
+const mapUrl=(input)=>{try{const u=makeURL(String(input),location.href);if(u.host===location.host)return u.href;if(!allowed(u.hostname))return null;const prefix=fallback(u.hostname)?"":C.prefix+"/"+u.hostname.toLowerCase();let proto=u.protocol;if(proto==="wss:"||proto==="ws:")proto=location.protocol==="https:"?"wss:":"ws:";else if(proto==="https:"||proto==="http:")proto=location.protocol;else return null;return proto+"//"+location.host+prefix+u.pathname+u.search+u.hash;}catch(e){return null;}};
 const rewrite=(input)=>{const next=mapUrl(input);return next==null?input:next;};
 const srcset=(value)=>String(value).split(",").map((part)=>{const bits=part.trim().split(/\\s+/);if(!bits[0])return part;const mapped=mapUrl(bits[0]);if(mapped)bits[0]=mapped;return bits.join(" ");}).join(", ");
 const ofetch=window.fetch;window.fetch=function(input,init){try{if(typeof input==="string"||input instanceof URL)input=rewrite(input);else if(input&&typeof input.url==="string"){const mapped=mapUrl(input.url);if(mapped)input=new Request(mapped,input);}}catch(e){}return ofetch.call(this,input,init);};
