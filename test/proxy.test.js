@@ -190,9 +190,17 @@ test("gate stays closed until the server password matches", async () => {
     assert.equal(wrong.status, 303);
     assert.equal(wrong.headers.get("location"), "/_proxy/unlock?e=1");
 
+    const foreign = await fetch(`http://127.0.0.1:${port}/_proxy/unlock`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://evil.example" },
+      body: "password=long-enough-key",
+      redirect: "manual",
+    });
+    assert.equal(foreign.status, 403);
+
     const right = await fetch(`http://127.0.0.1:${port}/_proxy/unlock`, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded", origin: `http://127.0.0.1:${port}` },
+      headers: { "content-type": "application/x-www-form-urlencoded", origin: `https://127.0.0.1:${port}` },
       body: "password=long-enough-key",
       redirect: "manual",
     });

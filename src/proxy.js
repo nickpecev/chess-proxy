@@ -91,15 +91,55 @@ function clientAddress(req, config) {
   return req.socket?.remoteAddress || "unknown";
 }
 
+function hostnameFromHeader(value) {
+  const first = String(value || "").split(",")[0].trim();
+  if (!first) return "";
+  try {
+    return new URL(`http://${first}`).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function browserPage(req) {
+  const source = req.headers.origin || req.headers.referer || "";
+  if (!source) return null;
+  try {
+    return new URL(source);
+  } catch {
+    return null;
+  }
+}
+
+function addressedHosts(req, config) {
+  const names = [
+    hostnameFromHeader(req.headers.host),
+    hostnameFromHeader(req.headers["x-forwarded-host"]),
+  ];
+  if (config.publicOrigin) names.push(new URL(config.publicOrigin).hostname.toLowerCase());
+  return new Set(names.filter(Boolean));
+}
+
+export function formComesFromThisSite(req, config) {
+  const page = browserPage(req);
+  if (!page) return false;
+  return addressedHosts(req, config).has(page.hostname.toLowerCase());
+}
+
 export function requestContext(req, config) {
   if (config.publicOrigin) return publicContext(config.publicOrigin);
   let proto = req.socket?.encrypted ? "https" : "http";
-  let host = req.headers.host || `127.0.0.1:${config.port}`;
+  let host = String(req.headers.host || `127.0.0.1:${config.port}`).split(",")[0].trim();
   if (config.trustProxy) {
-    const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+    const forwardedProto = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
     const forwardedHost = String(req.headers["x-forwarded-host"] || "").split(",")[0].trim();
     if (forwardedProto === "http" || forwardedProto === "https") proto = forwardedProto;
     if (forwardedHost) host = forwardedHost;
+  }
+  const page = browserPage(req);
+  if (page && addressedHosts(req, config).has(page.hostname.toLowerCase()) && page.protocol === "https:") {
+    proto = "https";
+    if (hostnameFromHeader(host) !== page.hostname.toLowerCase()) host = page.host;
   }
   let parsed;
   try {
@@ -250,12 +290,7 @@ export function createApp(config, deps = {}) {
       res.end();
       return;
     }
-    if (req.headers.origin && req.headers.origin !== ctx.origin) {
-      plain(res, 403, "The unlock form was submitted from the wrong address.");
-      return;
-    }
-    const referer = req.headers.referer || "";
-    if (!req.headers.origin && referer && !referer.startsWith(`${ctx.origin}/`)) {
+    if (!formComesFromThisSite(req, config)) {
       plain(res, 403, "The unlock form was submitted from the wrong address.");
       return;
     }
