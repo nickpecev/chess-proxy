@@ -257,7 +257,7 @@ async function loadPuzzle() {
   renderStatus();
   const level = levelEl.value || "normal";
   sessionStorage.setItem("puzzle-level", level);
-  const response = await fetch(`/_proxy/puzzles/next?difficulty=${encodeURIComponent(level)}`);
+  const response = await fetch(`/_proxy/puzzles/next?difficulty=${encodeURIComponent(level)}`, { cache: "no-store" });
   if (!response.ok) throw new Error(String(response.status));
   puzzle = await response.json();
   pos = parseFen(puzzle.fen);
@@ -271,7 +271,7 @@ async function loadPuzzle() {
 
 function succeed() {
   mode = "solved";
-  streak += 1;
+  if (misses === 0) streak += 1;
   selected = null;
   blip(660);
   render();
@@ -319,8 +319,8 @@ async function playMove(uci) {
     pos = before;
     lastUci = marked;
     busy = false;
-    mode = misses >= 2 ? "failed" : "retry";
-    if (mode === "failed") streak = 0;
+    mode = "retry";
+    streak = 0;
     render();
     return;
   }

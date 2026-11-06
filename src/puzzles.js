@@ -8,11 +8,67 @@ const MOVE = /^[a-h][1-8][a-h][1-8][nbrq]?$/;
 
 const FALLBACK = [
   {
-    id: "queen-mate",
+    id: "queenmate",
     rating: 900,
     themes: ["mateIn1"],
     fen: "1n4k1/5ppp/8/5N2/8/8/8/6QK w - - 0 1",
     solution: ["g1g7"],
+    lastMove: "",
+  },
+  {
+    id: "backrank",
+    rating: 850,
+    themes: ["mateIn1", "backRankMate"],
+    fen: "6k1/5ppp/8/8/8/8/8/4R1K1 w - - 0 1",
+    solution: ["e1e8"],
+    lastMove: "",
+  },
+  {
+    id: "queenstep",
+    rating: 880,
+    themes: ["mateIn1"],
+    fen: "6k1/4Q3/6K1/8/8/8/8/8 w - - 0 1",
+    solution: ["e7g7"],
+    lastMove: "",
+  },
+  {
+    id: "smother",
+    rating: 1100,
+    themes: ["mateIn1", "smotheredMate"],
+    fen: "6rk/5ppp/8/6N1/8/8/8/7K w - - 0 1",
+    solution: ["g5f7"],
+    lastMove: "",
+  },
+  {
+    id: "qside",
+    rating: 920,
+    themes: ["mateIn1"],
+    fen: "7k/8/5K2/8/8/8/6Q1/8 w - - 0 1",
+    solution: ["g2g7"],
+    lastMove: "",
+  },
+  {
+    id: "pawnmate",
+    rating: 860,
+    themes: ["mateIn1", "promotion"],
+    fen: "6k1/4P3/6K1/8/8/8/8/8 w - - 0 1",
+    solution: ["e7e8q"],
+    lastMove: "",
+  },
+  {
+    id: "rooktake",
+    rating: 980,
+    themes: ["mateIn1", "backRankMate"],
+    fen: "4r1k1/5ppp/8/8/8/8/8/4R1K1 w - - 0 1",
+    solution: ["e1e8"],
+    lastMove: "",
+  },
+  {
+    id: "fork",
+    rating: 1050,
+    themes: ["fork"],
+    fen: "r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1",
+    solution: ["d5c7", "e8d8", "c7a8"],
     lastMove: "",
   },
   {
@@ -37,10 +93,6 @@ const ASSETS = {
   "/_proxy/puzzles/app.js": readFileSync(join(dirname(fileURLToPath(import.meta.url)), "puzzle-app.js")),
   "/_proxy/puzzles/chess.js": readFileSync(join(dirname(fileURLToPath(import.meta.url)), "chess.js")),
 };
-
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 export function linePlays(fen, solution) {
   try {
@@ -77,9 +129,18 @@ export function normalizePuzzle(body) {
   return linePlays(next.fen, next.solution) ? next : null;
 }
 
-async function requestPuzzle(fetchImpl, difficulty) {
+function shuffle(list) {
+  const copy = list.slice();
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swap]] = [copy[swap], copy[index]];
+  }
+  return copy;
+}
+
+async function requestBatch(fetchImpl, difficulty) {
   const response = await fetchImpl(
-    `https://lichess.org/api/puzzle/next?angle=mix&difficulty=${difficulty}`,
+    `https://lichess.org/api/puzzle/batch/mix?difficulty=${difficulty}&nb=20`,
     {
       headers: {
         accept: "application/json",
@@ -88,33 +149,67 @@ async function requestPuzzle(fetchImpl, difficulty) {
       signal: AbortSignal.timeout(8000),
     },
   );
+  if (response.status === 429) throw new Error("429");
   if (!response.ok) throw new Error(String(response.status));
-  return normalizePuzzle(await response.json());
+  const body = await response.json();
+  const list = Array.isArray(body?.puzzles) ? body.puzzles : [body];
+  const puzzles = [];
+  for (const item of list) {
+    const puzzle = normalizePuzzle(item);
+    if (puzzle) puzzles.push(puzzle);
+  }
+  if (puzzles.length === 0) throw new Error("empty");
+  return puzzles;
 }
 
 export function createPuzzleSource(fetchImpl = globalThis.fetch) {
+  const queues = new Map();
+  const inflight = new Map();
+  const stock = [];
   let lastId = "";
-  let lastAt = 0;
-  let cursor = 0;
+  let blockedUntil = 0;
+
+  function remember(puzzles) {
+    const fresh = [];
+    for (const puzzle of puzzles) {
+      if (stock.some((saved) => saved.id === puzzle.id)) continue;
+      stock.push(puzzle);
+      fresh.push(puzzle);
+      if (stock.length > 80) stock.shift();
+    }
+    return fresh;
+  }
+
+  function reuse() {
+    const pool = stock.length > 0 ? stock : FALLBACK;
+    const queue = shuffle(pool);
+    if (queue.length > 1 && queue[0].id === lastId) queue.push(queue.shift());
+    return queue;
+  }
+
   return async function nextPuzzle(requested) {
     const difficulty = LEVELS.has(requested) ? requested : "normal";
-    try {
-      const gap = 700 - (Date.now() - lastAt);
-      if (lastAt && gap > 0) await delay(gap);
-      let puzzle = null;
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        lastAt = Date.now();
-        puzzle = await requestPuzzle(fetchImpl, difficulty);
-        if (puzzle && puzzle.id !== lastId) break;
+    if (!queues.get(difficulty)?.length) {
+      let job = inflight.get(difficulty);
+      if (!job) {
+        job = (Date.now() < blockedUntil ? Promise.reject(new Error("429")) : requestBatch(fetchImpl, difficulty))
+          .then((puzzles) => {
+            const fresh = remember(puzzles);
+            return fresh.length > 0 ? fresh : reuse();
+          })
+          .catch((error) => {
+            if (String(error?.message || error) === "429") blockedUntil = Date.now() + 15 * 60 * 1000;
+            return reuse();
+          })
+          .finally(() => inflight.delete(difficulty));
+        inflight.set(difficulty, job);
       }
-      if (!puzzle) throw new Error("empty");
-      lastId = puzzle.id;
-      return puzzle;
-    } catch {
-      const puzzle = FALLBACK[cursor % FALLBACK.length];
-      cursor += 1;
-      return puzzle;
+      const filled = await job;
+      if (!queues.get(difficulty)?.length) queues.set(difficulty, filled);
     }
+    const puzzle = queues.get(difficulty).shift();
+    lastId = puzzle.id;
+    return puzzle;
   };
 }
 
