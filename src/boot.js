@@ -3,6 +3,7 @@ import { clientAllowlist } from "./allowlist.js";
 export function clientBoot() {
   const config = JSON.stringify(clientAllowlist());
   return `(()=>{if(window.__chessProxy)return;window.__chessProxy=1;const C=${config};
+const site=window.chesscom=window.chesscom||{};const prefs=site.settings=site.settings||{};if(prefs["gameplay.live.premoves"]==null)prefs["gameplay.live.premoves"]=true;
 const OrigURL=globalThis.URL;
 function fixHost(value){const text=String(value);const name=location.hostname;const parts=name.split(".");if(parts.length<2)return text;const bad="www."+parts.slice(1).join(".");if(bad.toLowerCase()===name)return text;const escaped=bad.replace(/[.*+?^\${}()|[\\]\\\\]/g,"\\\\$&");return text.replace(new RegExp("(^|[^A-Za-z0-9.-])"+escaped+"(?![A-Za-z0-9.-])","gi"),function(_match,prefix){return prefix+name;});}
 function makeURL(url,base){const next=typeof url==="string"||url instanceof OrigURL?fixHost(url):url;return base===undefined?new OrigURL(next):new OrigURL(next,base);}

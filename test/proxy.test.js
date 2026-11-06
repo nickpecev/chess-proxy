@@ -132,6 +132,7 @@ test("boot script parses and does not close itself", () => {
   const source = clientBoot();
   assert.equal(source.includes("</"), false);
   assert.equal(source.includes("chess.com"), true);
+  assert.equal(source.includes("gameplay.live.premoves"), true);
   new Function(source);
 });
 
