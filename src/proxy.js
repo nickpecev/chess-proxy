@@ -120,10 +120,23 @@ function addressedHosts(req, config) {
   return new Set(names.filter(Boolean));
 }
 
+function statedPage(value) {
+  const text = String(value || "").trim();
+  if (!text || text.toLowerCase() === "null") return null;
+  try {
+    return new URL(text);
+  } catch {
+    return false;
+  }
+}
+
 export function formComesFromThisSite(req, config) {
-  const page = browserPage(req);
-  if (!page) return false;
-  return addressedHosts(req, config).has(page.hostname.toLowerCase());
+  const stated = [statedPage(req.headers.origin), statedPage(req.headers.referer)];
+  const present = stated.filter((page) => page !== null);
+  if (present.length === 0) return true;
+  if (present.some((page) => page === false)) return false;
+  const hosts = addressedHosts(req, config);
+  return present.every((page) => hosts.has(page.hostname.toLowerCase()));
 }
 
 export function requestContext(req, config) {
@@ -279,7 +292,7 @@ export function createApp(config, deps = {}) {
           "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY",
-        "referrer-policy": "no-referrer",
+        "referrer-policy": "same-origin",
         "x-robots-tag": "noindex, nofollow",
       });
       res.end(req.method === "HEAD" ? undefined : html);
