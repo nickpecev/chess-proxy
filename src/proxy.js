@@ -15,6 +15,7 @@ import {
 } from "./auth.js";
 import { clientBoot } from "./boot.js";
 import { gateHtml } from "./gate.js";
+import { createPuzzleHandler } from "./puzzles.js";
 import {
   injectBoot,
   isTextRequest,
@@ -272,6 +273,7 @@ function wantsDocument(req) {
 
 export function createApp(config, deps = {}) {
   const fetchImpl = deps.fetchImpl || globalThis.fetch;
+  const handlePuzzle = createPuzzleHandler(deps.puzzleFetch || globalThis.fetch);
   const unlockLimiter = createRateLimiter({ limit: 8, windowMs: 15 * 60 * 1000 });
 
   async function handleUnlock(req, res, ctx) {
@@ -344,6 +346,20 @@ export function createApp(config, deps = {}) {
     }
     if (target.internal === "unlock") {
       await handleUnlock(req, res, ctx);
+      return;
+    }
+    if (target.internal === "puzzles") {
+      if (!authorized(req, config)) {
+        const path = String(req.url || "").split("?")[0];
+        if (path === "/_proxy/puzzles" && wantsDocument(req)) {
+          res.writeHead(302, { location: "/_proxy/unlock", "cache-control": "no-store" });
+          res.end();
+          return;
+        }
+        plain(res, 401, "Unlock required.");
+        return;
+      }
+      await handlePuzzle(req, res);
       return;
     }
     if (target.error) {

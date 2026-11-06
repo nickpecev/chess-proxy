@@ -117,6 +117,14 @@ export function resolveUpstream(pathname, search = "") {
   if (path.includes("\\") || path.includes("\0")) return { error: 400 };
   if (path === "/_proxy/health") return { internal: "health" };
   if (path === "/_proxy/unlock") return { internal: "unlock" };
+  if (
+    path === "/_proxy/puzzles" ||
+    path === "/_proxy/puzzles/next" ||
+    path === "/_proxy/puzzles/app.js" ||
+    path === "/_proxy/puzzles/chess.js"
+  ) {
+    return { internal: "puzzles" };
+  }
   if (path.startsWith("/_proxy/") || path === "/_proxy") return { error: 404 };
 
   if (path.startsWith("/_c/")) {

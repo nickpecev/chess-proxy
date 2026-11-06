@@ -234,3 +234,71 @@ test("gate stays closed until the server password matches", async () => {
     server.close();
   }
 });
+
+test("puzzle screen is served here and does not call Chess.com", async () => {
+  assert.equal(parseRequestTarget("/_proxy/puzzles").internal, "puzzles");
+  assert.equal(parseRequestTarget("/_proxy/puzzles/next").internal, "puzzles");
+  const sample = {
+    puzzle: {
+      id: "queen-mate",
+      rating: 900,
+      themes: ["mateIn1"],
+      fen: "1n4k1/5ppp/8/5N2/8/8/8/6QK w - - 0 1",
+      solution: ["g1g7"],
+    },
+  };
+  const upstream = [];
+  const config = loadConfig({
+    NODE_ENV: "development",
+    PORT: "8080",
+    BIND_HOST: "127.0.0.1",
+    PROXY_ACCESS_KEY: "long-enough-key",
+    SESSION_SECRET: "this-is-a-test-secret-value",
+  });
+  const app = createApp(config, {
+    fetchImpl: async (url) => {
+      upstream.push(String(url));
+      return new Response("nope", { status: 500 });
+    },
+    puzzleFetch: async () => Response.json(sample),
+  });
+  const server = http.createServer((req, res) => app.handle(req, res));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const port = server.address().port;
+  try {
+    const locked = await fetch(`http://127.0.0.1:${port}/_proxy/puzzles`, {
+      headers: { accept: "text/html" },
+      redirect: "manual",
+    });
+    assert.equal(locked.status, 302);
+    assert.equal(locked.headers.get("location"), "/_proxy/unlock");
+
+    const open = await fetch(`http://127.0.0.1:${port}/_proxy/unlock`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: "password=long-enough-key",
+      redirect: "manual",
+    });
+    const cookie = open.headers.get("set-cookie").split(";")[0];
+    const page = await fetch(`http://127.0.0.1:${port}/_proxy/puzzles`, {
+      headers: { cookie, accept: "text/html" },
+    });
+    const html = await page.text();
+    assert.equal(page.status, 200);
+    assert.match(html, /Puzzles/);
+    assert.match(html, /src="\/_proxy\/puzzles\/app.js"/);
+    const next = await fetch(`http://127.0.0.1:${port}/_proxy/puzzles/next?difficulty=normal`, {
+      headers: { cookie },
+    });
+    const body = await next.json();
+    assert.equal(body.id, "queenmate");
+    assert.deepEqual(body.solution, ["g1g7"]);
+    const script = await fetch(`http://127.0.0.1:${port}/_proxy/puzzles/chess.js`, { headers: { cookie } });
+    assert.equal(script.status, 200);
+    assert.match(await script.text(), /export function legalMoves/);
+    assert.equal(upstream.length, 0);
+  } finally {
+    server.close();
+  }
+});
